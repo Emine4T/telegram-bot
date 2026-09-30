@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env.local
+.venv/
+venv/
+*.db
+/uploads/receipts/*.png
+/uploads/receipts/*.jpg
+/uploads/receipts/*.jpeg
