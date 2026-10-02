@@ -1,8 +1,12 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from database.database import get_db
-from database.models import User
+try:
+    from ehd_shope.database.database import get_db
+    from ehd_shope.database.models import User
+except ImportError:
+    from database.database import get_db
+    from database.models import User
 
 
 async def auth_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

@@ -1,181 +1,213 @@
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database.database import Base
+try:
+    from ehd_shope.database.database import Base
+except ImportError:
+    from database.database import Base
 
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    telegram_id = Column(Integer, unique=True, index=True, nullable=False)
-    username = Column(String, nullable=True)
-    first_name = Column(String, nullable=True)
-    last_name = Column(String, nullable=True)
-    is_admin = Column(Boolean, default=False)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    telegram_id: Mapped[int] = mapped_column(Integer, unique=True, index=True, nullable=False)
+    username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    first_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    last_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    phone_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    language: Mapped[str] = mapped_column(String(20), default="en")
+    registration_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    def __init__(
-        self,
-        telegram_id: int,
-        username: Optional[str] = None,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
-        is_admin: bool = False,
-        is_active: bool = True,
-        created_at: Optional[datetime] = None,
-    ) -> None:
-        self.telegram_id = telegram_id
-        self.username = username
-        self.first_name = first_name
-        self.last_name = last_name
-        self.is_admin = is_admin
-        self.is_active = is_active
-        self.created_at = created_at or datetime.utcnow()
+    carts: Mapped[list["Cart"]] = relationship(back_populates="user")
+    orders: Mapped[list["Order"]] = relationship(back_populates="customer")
+    payments: Mapped[list["Payment"]] = relationship(back_populates="customer")
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "telegram_id": self.telegram_id,
-            "username": self.username,
-            "first_name": self.first_name,
-            "last_name": self.last_name,
-            "is_admin": self.is_admin,
-            "is_active": self.is_active,
-            "created_at": self.created_at,
-        }
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    name_am: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    slug: Mapped[str] = mapped_column(String(120), unique=True, index=True, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description_am: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    products: Mapped[list["Product"]] = relationship(back_populates="category")
 
 
 class Product(Base):
     __tablename__ = "products"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    description = Column(String, nullable=True)
-    price = Column(Float, nullable=False)
-    stock = Column(Integer, default=0)
-    is_active = Column(Boolean, default=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name_am: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description_am: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    price: Mapped[float] = mapped_column(Float, nullable=False)
+    discount_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    stock_quantity: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(30), default="available")
+    image_file_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        price: float,
-        stock: int,
-        is_active: bool = True,
-    ) -> None:
-        self.name = name
-        self.description = description
-        self.price = price
-        self.stock = stock
-        self.is_active = is_active
+    category: Mapped[Category] = relationship(back_populates="products")
+    sizes: Mapped[list["ProductSize"]] = relationship(back_populates="product")
+    colors: Mapped[list["ProductColor"]] = relationship(back_populates="product")
+    cart_items: Mapped[list["CartItem"]] = relationship(back_populates="product")
+    order_items: Mapped[list["OrderItem"]] = relationship(back_populates="product")
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "name": self.name,
-            "description": self.description,
-            "price": self.price,
-            "stock": self.stock,
-            "is_active": self.is_active,
-        }
+
+class ProductSize(Base):
+    __tablename__ = "product_sizes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
+    size: Mapped[str] = mapped_column(String(20), nullable=False)
+    stock_quantity: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    product: Mapped[Product] = relationship(back_populates="sizes")
+
+
+class ProductColor(Base):
+    __tablename__ = "product_colors"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
+    color: Mapped[str] = mapped_column(String(50), nullable=False)
+    color_am: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    product: Mapped[Product] = relationship(back_populates="colors")
+
+
+class Cart(Base):
+    __tablename__ = "carts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user: Mapped[User] = relationship(back_populates="carts")
+    items: Mapped[list["CartItem"]] = relationship(back_populates="cart")
+
+    __table_args__ = (UniqueConstraint("user_id", name="uq_cart_user"),)
 
 
 class CartItem(Base):
     __tablename__ = "cart_items"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    quantity = Column(Integer, default=1)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    cart_id: Mapped[int] = mapped_column(ForeignKey("carts.id"), nullable=False)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    selected_size: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    selected_color: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
-    user = relationship("User")
-    product = relationship("Product")
-
-    def __init__(self, telegram_id: int, product_id: str, quantity: int = 1) -> None:
-        self.telegram_id = telegram_id
-        self.product_id = product_id
-        self.quantity = quantity
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "telegram_id": self.telegram_id,
-            "product_id": self.product_id,
-            "quantity": self.quantity,
-        }
+    cart: Mapped[Cart] = relationship(back_populates="items")
+    product: Mapped[Product] = relationship(back_populates="cart_items")
 
 
 class Order(Base):
     __tablename__ = "orders"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    total_amount = Column(Float, nullable=False)
-    status = Column(String, default="pending")
-    payment_status = Column(String, default="unpaid")
-    created_at = Column(DateTime, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    order_number: Mapped[str] = mapped_column(String(30), unique=True, index=True, nullable=False)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    total_price: Mapped[float] = mapped_column(Float, nullable=False)
+    deposit_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    remaining_balance: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    payment_method: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    order_type: Mapped[str] = mapped_column(String(30), default="full_payment")
+    order_status: Mapped[str] = mapped_column(String(30), default="pending_payment")
+    payment_status: Mapped[str] = mapped_column(String(30), default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = relationship("User")
-
-    def __init__(
-        self,
-        telegram_id: int,
-        items: List[Dict[str, Any]],
-        total_amount: float,
-        status: str = "pending",
-        payment_status: str = "unpaid",
-    ) -> None:
-        self.telegram_id = telegram_id
-        self.items = items
-        self.total_amount = total_amount
-        self.status = status
-        self.payment_status = payment_status
-        self.created_at = datetime.utcnow()
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "telegram_id": self.telegram_id,
-            "items": self.items,
-            "total_amount": self.total_amount,
-            "status": self.status,
-            "payment_status": self.payment_status,
-            "created_at": self.created_at,
-        }
+    customer: Mapped[User] = relationship(back_populates="orders")
+    items: Mapped[list["OrderItem"]] = relationship(back_populates="order")
+    payments: Mapped[list["Payment"]] = relationship(back_populates="order")
+    reservations: Mapped[list["Reservation"]] = relationship(back_populates="order")
 
 
 class OrderItem(Base):
     __tablename__ = "order_items"
 
-    id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    quantity = Column(Integer, default=1)
-    unit_price = Column(Float, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), nullable=False)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    selected_size: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    selected_color: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    unit_price: Mapped[float] = mapped_column(Float, nullable=False)
+    subtotal: Mapped[float] = mapped_column(Float, nullable=False)
 
-    order = relationship("Order")
-    product = relationship("Product")
+    order: Mapped[Order] = relationship(back_populates="items")
+    product: Mapped[Product] = relationship(back_populates="order_items")
 
 
-class Receipt(Base):
-    __tablename__ = "receipts"
+class Payment(Base):
+    __tablename__ = "payments"
 
-    id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
-    file_path = Column(String, nullable=False)
-    uploaded_at = Column(DateTime, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), nullable=False)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    payment_method: Mapped[str] = mapped_column(String(30), nullable=False)
+    payment_type: Mapped[str] = mapped_column(String(30), default="full_payment")
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    transaction_number: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    screenshot_file_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="pending")
+    submitted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    review_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    order = relationship("Order")
+    order: Mapped[Order] = relationship(back_populates="payments")
+    customer: Mapped[User] = relationship(back_populates="payments")
 
-    def __init__(self, order_id: str, file_path: str) -> None:
-        self.order_id = order_id
-        self.file_path = file_path
-        self.uploaded_at = datetime.utcnow()
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "order_id": self.order_id,
-            "file_path": self.file_path,
-            "uploaded_at": self.uploaded_at,
-        }
+class Reservation(Base):
+    __tablename__ = "reservations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), nullable=False)
+    payment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("payments.id"), nullable=True)
+    deposit_amount: Mapped[float] = mapped_column(Float, nullable=False)
+    remaining_balance: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    order: Mapped[Order] = relationship(back_populates="reservations")
+
+
+class StoreSetting(Base):
+    __tablename__ = "settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    key: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, unique=True)
+    role: Mapped[str] = mapped_column(String(30), default="admin")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

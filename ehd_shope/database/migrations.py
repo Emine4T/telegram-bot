@@ -1,4 +1,7 @@
-from database.database import ensure_indexes
+try:
+    from ehd_shope.database.database import ensure_indexes
+except ImportError:
+    from database.database import ensure_indexes
 
 
 def run_migrations() -> None:

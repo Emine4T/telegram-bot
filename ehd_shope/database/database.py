@@ -1,19 +1,56 @@
-from pymongo import MongoClient
-from pymongo.database import Database
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-from config import MONGO_DB_NAME, MONGO_URI
+try:
+    from ehd_shope.config import DATABASE_URL
+except ImportError:
+    from config import DATABASE_URL
 
-client = MongoClient(MONGO_URI)
-db: Database = client[MONGO_DB_NAME]
+Base = declarative_base()
+engine = create_engine(DATABASE_URL, future=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def get_db() -> Database:
-    return db
+def init_db() -> None:
+    try:
+        from ehd_shope.database.models import (
+            AdminUser,
+            Cart,
+            CartItem,
+            Category,
+            Order,
+            OrderItem,
+            Payment,
+            Product,
+            ProductColor,
+            ProductSize,
+            Reservation,
+            StoreSetting,
+            User,
+        )
+    except ImportError:
+        from database.models import (
+            AdminUser,
+            Cart,
+            CartItem,
+            Category,
+            Order,
+            OrderItem,
+            Payment,
+            Product,
+            ProductColor,
+            ProductSize,
+            Reservation,
+            StoreSetting,
+            User,
+        )
+
+    Base.metadata.create_all(bind=engine)
 
 
-def ensure_indexes() -> None:
-    db.users.create_index("telegram_id", unique=True)
-    db.users.create_index("username")
-    db.products.create_index("name")
-    db.orders.create_index("user_id")
-    db.carts.create_index([("telegram_id", 1), ("product_id", 1)], unique=True)
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

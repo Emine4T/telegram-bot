@@ -1,6 +1,9 @@
 from typing import Dict
 
-from database.database import get_db
+try:
+    from ehd_shope.database.database import get_db
+except ImportError:
+    from database.database import get_db
 
 
 class ReceiptService:
